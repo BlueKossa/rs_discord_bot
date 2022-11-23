@@ -6,6 +6,8 @@ use serenity::async_trait;
 use serenity::model::application::command::Command;
 use serenity::model::application::interaction::{Interaction, InteractionResponseType};
 use serenity::model::gateway::Ready;
+use serenity::model::prelude::application_command::ApplicationCommandInteraction;
+use serenity::model::prelude::MessageId;
 use serenity::prelude::*;
 
 struct Handler;
@@ -13,35 +15,41 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = &interaction {
-            println!("Received command interaction: {:#?}", command);
+        match &interaction {
+            Interaction::ApplicationCommand(command) => {
+                println!("Received command interaction: {:#?}", command);
 
-            let content = match command.data.name.as_str() {
-                "react" => commands::react::run(&command.data.options),
-                "createreaction" => {
-                    commands::create_reaction::run(&command.data.options, &ctx).await
+                let content = match command.data.name.as_str() {
+                    "react" => commands::react::run(&command.data.options),
+                    "createreaction" => {
+                        commands::create_reaction::run(&command.data.options, &ctx).await
+                    }
+                    _ => "not implemented :(".to_string(),
+                };
+                if let Err(why) = command
+                    .create_interaction_response(&ctx.http, |response| {
+                        response
+                            .kind(InteractionResponseType::ChannelMessageWithSource)
+                            .interaction_response_data(|message| {
+                                message.content(content).ephemeral(true)
+                            })
+                    })
+                    .await
+                {
+                    println!("Cannot respond to slash command: {}", why);
                 }
-                _ => "not implemented :(".to_string(),
-            };
-
-            if let Err(why) = command
-                .create_interaction_response(&ctx.http, |response| {
-                    response
-                        .kind(InteractionResponseType::ChannelMessageWithSource)
-                        .interaction_response_data(|message| message.content(content))
-                })
-                .await
-            {
-                println!("Cannot respond to slash command: {}", why);
             }
-        }
-        if let Interaction::Autocomplete(autocomplete) = &interaction {
-            println!("Received autocomplete interaction: {:#?}", autocomplete);
+            Interaction::Autocomplete(autocomplete) => {
+                println!("Received autocomplete interaction: {:#?}", autocomplete);
 
-            match autocomplete.data.name.as_str() {
-                "react" => commands::react::send_autocomplete(autocomplete, &ctx).await,
-                _ => {}
-            };
+                match autocomplete.data.name.as_str() {
+                    "react" => commands::react::send_autocomplete(autocomplete, &ctx).await,
+                    _ => {}
+                };
+            }
+            _ => {
+                println!("Received interaction: {:#?}, not implemented!", interaction);
+            }
         }
     }
 

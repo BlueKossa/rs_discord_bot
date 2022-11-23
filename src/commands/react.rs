@@ -16,7 +16,7 @@ pub struct Emote {
     pub emote: String,
 }
 
-pub fn run(options: &[CommandDataOption]) -> String {
+pub async fn run(options: &[CommandDataOption]) -> String {
     let option = options
         .get(0)
         .expect("Expected user option")

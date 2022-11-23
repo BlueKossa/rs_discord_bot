@@ -12,7 +12,8 @@ use serenity::model::prelude::interaction::application_command::{
 use serenity::model::prelude::GuildId;
 use serenity::prelude::Context;
 
-use super::react::Emote;
+use crate::commands::handler::Response;
+use crate::commands::react::Emote;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct HomeChannel {
@@ -20,7 +21,7 @@ struct HomeChannel {
     channel_id: u64,
 }
 
-pub async fn run(options: &[CommandDataOption], ctx: &Context) -> String {
+pub async fn run(options: &[CommandDataOption], ctx: &Context) -> Response {
     // Open the emote file and read all emotes into a mutable vector
     let file = File::open("data/emotes.json").expect("Unable to open file");
     let mut emotes: Vec<Emote> = serde_json::from_reader(&file).expect("Unable to read file");
@@ -53,7 +54,7 @@ pub async fn run(options: &[CommandDataOption], ctx: &Context) -> String {
     if let CommandDataOptionValue::String(str) = option {
         for emote in &emotes {
             if emote.name == *str {
-                return "An emote by that name already exists".to_string();
+                return Response::Hidden("An emote by that name already exists".to_string());
             }
         }
         name = str.to_string();
@@ -107,6 +108,8 @@ pub async fn run(options: &[CommandDataOption], ctx: &Context) -> String {
         return "Please provide a valid image".to_string();
     }
 }
+
+fn respond() {}
 
 pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     // Create the required files if they don't exist
