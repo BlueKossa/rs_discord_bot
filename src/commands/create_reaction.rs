@@ -59,7 +59,7 @@ pub async fn run(options: &[CommandDataOption], ctx: &Context) -> Response {
         }
         name = str.to_string();
     } else {
-        return "Please provide a valid name".to_string();
+        return Response::Hidden("Please provide a valid name".to_string());
     };
 
     // Get the emote attachment
@@ -88,7 +88,7 @@ pub async fn run(options: &[CommandDataOption], ctx: &Context) -> Response {
             .await
         {
             Ok(emoji) => emoji,
-            Err(_) => return "Please provide a valid image".to_string(),
+            Err(_) => return Response::Hidden("Please provide a valid image".to_string()),
         };
         // Add the emote to the emote vector
         emotes.push(Emote {
@@ -103,13 +103,11 @@ pub async fn run(options: &[CommandDataOption], ctx: &Context) -> Response {
             .unwrap()
             .write_all(contents.as_bytes())
             .unwrap();
-        format!("command input is {}", attachment.url)
+        return Response::Shown(format!("Added new emote '{}'", name));
     } else {
-        return "Please provide a valid image".to_string();
+        return Response::Hidden("Please provide a valid image".to_string());
     }
 }
-
-fn respond() {}
 
 pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicationCommand {
     // Create the required files if they don't exist

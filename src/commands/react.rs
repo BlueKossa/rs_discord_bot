@@ -6,9 +6,12 @@ use serenity::builder::CreateApplicationCommand;
 use serenity::model::application::interaction::autocomplete::AutocompleteInteraction;
 use serenity::model::prelude::command::CommandOptionType;
 use serenity::model::prelude::interaction::application_command::{
-    CommandDataOption, CommandDataOptionValue,
+    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
 };
+use serenity::model::prelude::ReactionType;
 use serenity::prelude::Context;
+
+use crate::commands::handler::Response;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Emote {
@@ -16,7 +19,11 @@ pub struct Emote {
     pub emote: String,
 }
 
-pub async fn run(options: &[CommandDataOption]) -> String {
+pub async fn run(
+    options: &[CommandDataOption],
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+) -> Response {
     let option = options
         .get(0)
         .expect("Expected user option")
@@ -24,11 +31,61 @@ pub async fn run(options: &[CommandDataOption]) -> String {
         .as_ref()
         .expect("Expected user object");
     println!("{:?}", option);
+    let emote;
 
     if let CommandDataOptionValue::String(str) = option {
-        format!("command input is {}", str)
+        println!("{}", str);
+        let file = File::open("data/emotes.json").expect("Unable to open file");
+        let emotes: Vec<Emote> = serde_json::from_reader(&file).expect("Unable to read file");
+        let find_emote = emotes
+            .iter()
+            .find(|e| e.name == str.to_string() || e.emote == str.to_string());
+        match find_emote {
+            Some(e) => {
+                let emote_string = format!("<:{}:{}>", e.name, e.emote);
+                if let Ok(e) = ReactionType::try_from(emote_string) {
+                    emote = e;
+                } else {
+                    return Response::Hidden("Invalid emote".to_string());
+                }
+            }
+            None => return Response::Hidden("No emote by that name exists".to_string()),
+        }
     } else {
-        "Please provide a valid user".to_string()
+        return Response::Hidden("Failed to react".to_string());
+    }
+
+    let option = options
+        .get(1)
+        .expect("Expected user option")
+        .resolved
+        .as_ref()
+        .expect("Expected user object");
+    println!("{:?}", options.len());
+    if let CommandDataOptionValue::Integer(int) = option {
+        let channel = command
+            .channel_id
+            .to_channel(&ctx.http)
+            .await
+            .unwrap()
+            .guild()
+            .unwrap();
+
+        if int <= &20 {
+            let messages = channel
+                .messages(&ctx.http, |m| m.limit(*int as u64))
+                .await
+                .unwrap();
+            let message = messages.last().unwrap();
+            message.react(&ctx.http, emote).await.unwrap();
+        } else {
+            let message = channel.message(&ctx.http, *int as u64).await.unwrap();
+            message.react(&ctx.http, emote).await.unwrap();
+        }
+
+        return Response::Hidden("Successfully reacted".to_string());
+    } else {
+        return Response::Hidden("Failed to react".to_string());
     }
 }
 
@@ -66,18 +123,26 @@ pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicatio
         .description("Get a user id")
         .create_option(|option| {
             option
-                .name("emotes")
-                .description("Choose an emote")
+                .name("emote")
+                .description("Choose an emote to react with")
                 .kind(CommandOptionType::String)
-                .required(false)
+                .required(true)
                 .set_autocomplete(true)
         })
         .create_option(|option| {
             option
-                .name("message")
+                .name("id")
+                .description("React to a message by id")
+                .kind(CommandOptionType::String)
+                .required(false)
+        })
+        .create_option(|option| {
+            option
+                .name("relative")
                 .description("X messages ago to react to, defaults to last message in channel")
-                .kind(CommandOptionType::Integer)
+                .kind(CommandOptionType::Number)
                 .required(false)
                 .max_int_value(20)
+                .min_int_value(1)
         })
 }

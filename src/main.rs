@@ -2,12 +2,11 @@ mod commands;
 
 use std::env;
 
+use commands::handler::{autocomplete_handler, command_handler};
 use serenity::async_trait;
 use serenity::model::application::command::Command;
-use serenity::model::application::interaction::{Interaction, InteractionResponseType};
+use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
-use serenity::model::prelude::application_command::ApplicationCommandInteraction;
-use serenity::model::prelude::MessageId;
 use serenity::prelude::*;
 
 struct Handler;
@@ -17,35 +16,10 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match &interaction {
             Interaction::ApplicationCommand(command) => {
-                println!("Received command interaction: {:#?}", command);
-
-                let content = match command.data.name.as_str() {
-                    "react" => commands::react::run(&command.data.options),
-                    "createreaction" => {
-                        commands::create_reaction::run(&command.data.options, &ctx).await
-                    }
-                    _ => "not implemented :(".to_string(),
-                };
-                if let Err(why) = command
-                    .create_interaction_response(&ctx.http, |response| {
-                        response
-                            .kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|message| {
-                                message.content(content).ephemeral(true)
-                            })
-                    })
-                    .await
-                {
-                    println!("Cannot respond to slash command: {}", why);
-                }
+                command_handler(&ctx, &command).await;
             }
             Interaction::Autocomplete(autocomplete) => {
-                println!("Received autocomplete interaction: {:#?}", autocomplete);
-
-                match autocomplete.data.name.as_str() {
-                    "react" => commands::react::send_autocomplete(autocomplete, &ctx).await,
-                    _ => {}
-                };
+                autocomplete_handler(&ctx, &autocomplete).await;
             }
             _ => {
                 println!("Received interaction: {:#?}, not implemented!", interaction);

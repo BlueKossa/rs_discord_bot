@@ -15,11 +15,11 @@ pub enum Response {
 
 pub async fn command_handler(ctx: &Context, command: &ApplicationCommandInteraction) {
     let res = match command.data.name.as_str() {
-        "react" => commands::react::run(&command.data.options).await,
+        "react" => commands::react::run(&command.data.options, &ctx, &command).await,
         "createreaction" => commands::create_reaction::run(&command.data.options, &ctx).await,
-        _ => "not implemented :(".to_string(),
+        _ => Response::Hidden("Unknown command".to_string()),
     };
-    response_handler(&ctx, &command, &res);
+    response_handler(&ctx, &command, &res).await;
 }
 
 async fn response_handler(ctx: &Context, command: &ApplicationCommandInteraction, res: &Response) {
@@ -39,6 +39,7 @@ async fn response_handler(ctx: &Context, command: &ApplicationCommandInteraction
 }
 
 pub async fn autocomplete_handler(ctx: &Context, autocomplete: &AutocompleteInteraction) {
+    println!("Hello");
     match autocomplete.data.name.as_str() {
         "react" => commands::react::send_autocomplete(autocomplete, &ctx).await,
         _ => {}
