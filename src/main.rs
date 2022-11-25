@@ -1,13 +1,21 @@
 mod commands;
+mod friday;
 
 use std::env;
 
 use commands::handler::{autocomplete_handler, command_handler};
+use friday::friday::handle_message;
 use serenity::async_trait;
 use serenity::model::application::command::Command;
 use serenity::model::application::interaction::Interaction;
 use serenity::model::gateway::Ready;
+use serenity::model::prelude::Message;
 use serenity::prelude::*;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::friday::friday::friday_controller;
+
+static THREAD: AtomicBool = AtomicBool::new(false);
 
 struct Handler;
 
@@ -27,20 +35,31 @@ impl EventHandler for Handler {
         }
     }
 
+    async fn message(&self, ctx: Context, msg: Message) {
+        println!("Received message: {:#?}", msg);
+        handle_message(&msg, &ctx).await;
+    }
+
     async fn ready(&self, ctx: Context, ready: Ready) {
         println!("{} is connected!", ready.user.name);
-
         let guild_command = Command::set_global_application_commands(&ctx.http, |commands| {
             commands
                 .create_application_command(|command| commands::react::register(command))
                 .create_application_command(|command| commands::create_reaction::register(command))
+                .create_application_command(|command| commands::pardon::register(command))
         })
         .await;
-
-        println!(
-            "I created the following global slash command: {:#?}",
-            guild_command
-        );
+        if THREAD.load(Ordering::Relaxed) {
+            return;
+        }
+        THREAD.store(true, Ordering::Relaxed);
+        tokio::spawn(async move {
+            loop {
+                friday_controller(&ctx).await;
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            }
+        });
+        println!("Registered commands: {:#?}", guild_command);
     }
 }
 
@@ -48,12 +67,14 @@ impl EventHandler for Handler {
 async fn main() {
     // Configure the client with your Discord bot token in the environment.
     let token = env::args().nth(1).expect("Expected a bot token");
-
+    let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
     // Build our client.
-    let mut client = Client::builder(token, GatewayIntents::empty())
+    let mut client = Client::builder(&token, intents)
         .event_handler(Handler)
         .await
-        .expect("Error creating client");
+        .expect("Err creating client");
 
     // Finally, start a single shard, and start listening to events.
     //

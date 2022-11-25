@@ -19,12 +19,93 @@ pub struct Emote {
     pub emote: String,
 }
 
+struct React {
+    emote: ReactionType,
+    id: Option<u64>,
+    relative: u64,
+}
+
+impl React {
+    fn new() -> Self {
+        Self {
+            emote: ReactionType::Unicode(String::new()),
+            id: None,
+            relative: 1,
+        }
+    }
+}
+
 pub async fn run(
     options: &[CommandDataOption],
     ctx: &Context,
     command: &ApplicationCommandInteraction,
 ) -> Response {
-    let option = options
+    let mut react = React::new();
+    for option in options {
+        match option.name.as_str() {
+            "emote" => {
+                if let CommandDataOptionValue::String(emote) = &option.resolved.as_ref().unwrap() {
+                    let file = File::open("data/emotes.json").expect("Unable to open file");
+                    let emotes: Vec<Emote> =
+                        serde_json::from_reader(&file).expect("Unable to read file");
+                    let find_emote = emotes
+                        .iter()
+                        .find(|e| e.name == emote.to_string() || e.emote == emote.to_string());
+                    if let Some(emote) = find_emote {
+                        let emote_string = format!("<:{}:{}>", emote.name, emote.emote);
+                        if let Ok(e) = ReactionType::try_from(emote_string) {
+                            react.emote = e;
+                        } else {
+                            return Response::Hidden("Unable to find emote".to_string());
+                        }
+                    } else {
+                        return Response::Hidden("Unable to find emote".to_string());
+                    }
+                }
+            }
+            "id" => {
+                if let CommandDataOptionValue::String(id) = &option.resolved.as_ref().unwrap() {
+                    let id = id.parse::<u64>();
+                    if let Ok(id) = id {
+                        react.id = Some(id);
+                    } else {
+                        return Response::Hidden("Invalid message ID".to_string());
+                    }
+                }
+            }
+            "relative" => {
+                if let CommandDataOptionValue::Integer(relative) =
+                    &option.resolved.as_ref().unwrap()
+                {
+                    react.relative = *relative as u64;
+                }
+            }
+            _ => {}
+        }
+    }
+    let channel = command
+        .channel_id
+        .to_channel(&ctx.http)
+        .await
+        .unwrap()
+        .guild()
+        .unwrap();
+    let message;
+    if let Some(id) = react.id {
+        message = channel.message(&ctx.http, id).await.unwrap();
+    } else {
+        let messages = channel
+            .messages(&ctx.http, |m| m.limit(react.relative))
+            .await
+            .unwrap();
+        message = messages.first().unwrap().to_owned();
+    }
+    message
+        .react(&ctx.http, react.emote.to_owned())
+        .await
+        .unwrap();
+    Response::Hidden("Successfully reacted".to_string())
+    /*     let option = options
         .get(0)
         .expect("Expected user option")
         .resolved
@@ -32,7 +113,6 @@ pub async fn run(
         .expect("Expected user object");
     println!("{:?}", option);
     let emote;
-
     if let CommandDataOptionValue::String(str) = option {
         println!("{}", str);
         let file = File::open("data/emotes.json").expect("Unable to open file");
@@ -86,7 +166,7 @@ pub async fn run(
         return Response::Hidden("Successfully reacted".to_string());
     } else {
         return Response::Hidden("Failed to react".to_string());
-    }
+    } */
 }
 
 pub async fn send_autocomplete(autocomplete: &AutocompleteInteraction, ctx: &Context) {

@@ -16,7 +16,10 @@ pub enum Response {
 pub async fn command_handler(ctx: &Context, command: &ApplicationCommandInteraction) {
     let res = match command.data.name.as_str() {
         "react" => commands::react::run(&command.data.options, &ctx, &command).await,
-        "createreaction" => commands::create_reaction::run(&command.data.options, &ctx).await,
+        "createreaction" => {
+            commands::create_reaction::run(&command.data.options, &ctx, &command).await
+        }
+        "pardon" => commands::pardon::run(&command.data.options, &command).await,
         _ => Response::Hidden("Unknown command".to_string()),
     };
     response_handler(&ctx, &command, &res).await;

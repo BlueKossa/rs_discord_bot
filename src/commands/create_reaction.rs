@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serenity::builder::CreateApplicationCommand;
 use serenity::model::prelude::command::CommandOptionType;
 use serenity::model::prelude::interaction::application_command::{
-    CommandDataOption, CommandDataOptionValue,
+    ApplicationCommandInteraction, CommandDataOption, CommandDataOptionValue,
 };
 use serenity::model::prelude::GuildId;
 use serenity::prelude::Context;
@@ -21,7 +21,21 @@ struct HomeChannel {
     channel_id: u64,
 }
 
-pub async fn run(options: &[CommandDataOption], ctx: &Context) -> Response {
+pub async fn run(
+    options: &[CommandDataOption],
+    ctx: &Context,
+    command: &ApplicationCommandInteraction,
+) -> Response {
+    let user = command.member.as_ref().unwrap().user.id.0;
+    let file = File::open("data/admin_users.json");
+    if let Ok(file) = file {
+        let admin_users: Vec<u64> = serde_json::from_reader(&file).expect("Unable to read file");
+        if !admin_users.contains(&user) {
+            return Response::Hidden("You are not an admin".to_string());
+        }
+    } else {
+        return Response::Hidden("You are not an admin".to_string());
+    }
     // Open the emote file and read all emotes into a mutable vector
     let file = File::open("data/emotes.json").expect("Unable to open file");
     let mut emotes: Vec<Emote> = serde_json::from_reader(&file).expect("Unable to read file");
