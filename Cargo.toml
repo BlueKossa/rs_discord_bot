@@ -13,3 +13,7 @@ serde_json = "1.0.89"
 serde = { version = "1.0.130", features = ["derive"] }
 base64 = "0.13.1"
 chrono = "0.4.23"
+image = "0.24.5"
+imageproc = "0.23.0"
+rusttype = "0.9.3"
+lazy_static = "1.4.0"
