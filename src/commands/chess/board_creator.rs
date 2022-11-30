@@ -3,6 +3,7 @@ use imageproc::drawing::draw_text_mut;
 use imageproc::drawing::text_size;
 
 use rusttype::{Font, Scale};
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 
 const LIGHT: Rgba<u8> = Rgba([255u8, 255u8, 255u8, 255u8]);
@@ -81,18 +82,19 @@ impl Piece {
     }
 }
 
-trait Setup {
+pub trait Setup {
     fn normal_board(light: Rgba<u8>, dark: Rgba<u8>, tile_size: u32) -> Board;
     fn empty_board(light: Rgba<u8>, dark: Rgba<u8>, tile_size: u32) -> Board;
 }
 
-trait Draw {
+pub trait Draw {
     fn text_decoration(&mut self, white: bool);
     fn draw_pieces(&mut self, white: bool);
     fn last_move(&mut self, white: bool);
+    fn draw_and_render(&mut self, white: bool) -> Vec<u8>;
 }
 
-trait Encode {
+pub trait Encode {
     fn encode_png(&self) -> Vec<u8>;
 }
 
@@ -258,6 +260,7 @@ impl Draw for Board {
             image::imageops::overlay(&mut self.board, &image, x.into(), y.into());
         }
     }
+
     fn last_move(&mut self, white: bool) {
         if let Some((from, to)) = self.last_move {
             let from = if white {
@@ -306,6 +309,16 @@ impl Draw for Board {
                 to_pixels.1.into(),
             );
         }
+    }
+
+    fn draw_and_render(&mut self, white: bool) -> Vec<u8> {
+        let img = self.board.clone();
+        self.text_decoration(white);
+        self.draw_pieces(white);
+        self.last_move(white);
+        let png = self.encode_png();
+        self.board = img;
+        png
     }
 }
 
