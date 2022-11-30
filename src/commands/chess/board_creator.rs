@@ -3,7 +3,6 @@ use imageproc::drawing::draw_text_mut;
 use imageproc::drawing::text_size;
 
 use rusttype::{Font, Scale};
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
 
 const LIGHT: Rgba<u8> = Rgba([255u8, 255u8, 255u8, 255u8]);
@@ -91,7 +90,6 @@ pub trait Draw {
     fn text_decoration(&mut self, white: bool);
     fn draw_pieces(&mut self, white: bool);
     fn last_move(&mut self, white: bool);
-    fn draw_and_render(&mut self, white: bool) -> Vec<u8>;
 }
 
 pub trait Encode {
@@ -310,16 +308,6 @@ impl Draw for Board {
             );
         }
     }
-
-    fn draw_and_render(&mut self, white: bool) -> Vec<u8> {
-        let img = self.board.clone();
-        self.text_decoration(white);
-        self.draw_pieces(white);
-        self.last_move(white);
-        let png = self.encode_png();
-        self.board = img;
-        png
-    }
 }
 
 impl Encode for Board {
@@ -335,5 +323,17 @@ impl Encode for Board {
             )
             .unwrap();
         buffer
+    }
+}
+
+impl Board {
+    fn draw_and_render(&mut self, white: bool) -> Vec<u8> {
+        let img = self.board.clone();
+        self.text_decoration(white);
+        self.draw_pieces(white);
+        self.last_move(white);
+        let png = self.encode_png();
+        self.board = img;
+        png
     }
 }
