@@ -12,10 +12,13 @@ use serenity::model::gateway::Ready;
 use serenity::model::prelude::Message;
 use serenity::prelude::*;
 use std::sync::atomic::{AtomicBool, Ordering};
+use rustrict::CensorStr;
 
 use crate::friday::friday::friday_controller;
 
 static THREAD: AtomicBool = AtomicBool::new(false);
+
+const GIF: &'static str = "https://media.discordapp.net/attachments/1153318707221762090/1153346066754838610/ezgif-2-21e2311d2b.gif";
 
 struct Handler;
 
@@ -37,6 +40,12 @@ impl EventHandler for Handler {
 
     async fn message(&self, ctx: Context, msg: Message) {
         println!("Received message: {:#?}", msg);
+        if msg.content.is_inappropriate() {
+            msg.reply(&ctx, GIF).await.unwrap();
+        }
+        if std::env::args().any(|arg| arg == "--DFriday".to_owned()) {
+            return;
+        }
         handle_message(&msg, &ctx).await;
     }
 
@@ -49,6 +58,9 @@ impl EventHandler for Handler {
                 .create_application_command(|command| commands::pardon::register(command))
         })
         .await;
+        if std::env::args().any(|arg| arg == "--DFriday".to_string()) {
+            return;
+        }
         if THREAD.load(Ordering::Relaxed) {
             return;
         }
